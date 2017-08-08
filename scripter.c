@@ -29,7 +29,6 @@
  */
 
 #include <sys/param.h>
-__FBSDID("$FreeBSD$");
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1980, 1992, 1993\n\
@@ -42,15 +41,13 @@ static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
 #include <sys/time.h>
 #include <sys/uio.h>
-#include <sys/endian.h>
-#include <dev/filemon/filemon.h>
 
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <libutil.h>
 #include <paths.h>
 #include <signal.h>
 #include <stdio.h>
@@ -58,6 +55,15 @@ static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+
+#if defined(__OpenBSD__) || defined(__APPLE__)
+#include <util.h>
+#elif defined(__FreeBSD__)
+#include <libutil.h>
+#else
+#include <pty.h>
+#include <utmp.h>
+#endif
 
 #define DEF_BUF 65536
 
@@ -73,7 +79,7 @@ static int master, slave;
 static int child;
 static const char *fname;
 static char *fmfname;
-static int fflg, qflg, ttyflg;
+static int qflg, ttyflg;
 static int usesleep, rawout, showexit;
 
 static struct termios tt;
@@ -82,8 +88,6 @@ static void done(int) __dead2;
 static void doshell(char **);
 static void finish(void);
 static void record(FILE *, char *, size_t, int);
-static void consume(FILE *, off_t, char *, int);
-static void playback(FILE *) __dead2;
 static void usage(void);
 
 int
@@ -97,16 +101,13 @@ main(int argc, char *argv[])
 	char obuf[BUFSIZ];
 	char ibuf[BUFSIZ];
 	fd_set rfd;
-	int aflg, Fflg, kflg, pflg, ch, k, n;
+	int aflg, Fflg, kflg, ch, k, n;
 	int flushtime, readstdin;
-	int fm_fd, fm_log;
 
-	aflg = Fflg = kflg = pflg = 0;
+	aflg = Fflg = kflg = 0;
 	usesleep = 1;
 	rawout = 0;
 	flushtime = 30;
-	fm_fd = -1;	/* Shut up stupid "may be used uninitialized" GCC
-			   warning. (not needed w/clang) */
 	showexit = 0;
 
 	while ((ch = getopt(argc, argv, "adFfkpqrt:")) != -1)
@@ -120,14 +121,8 @@ main(int argc, char *argv[])
 		case 'F':
 			Fflg = 1;
 			break;
-		case 'f':
-			fflg = 1;
-			break;
 		case 'k':
 			kflg = 1;
-			break;
-		case 'p':
-			pflg = 1;
 			break;
 		case 'q':
 			qflg = 1;
@@ -154,25 +149,8 @@ main(int argc, char *argv[])
 	} else
 		fname = "typescript";
 
-	if ((fscript = fopen(fname, pflg ? "r" : aflg ? "a" : "w")) == NULL)
+	if ((fscript = fopen(fname, aflg ? "a" : "w")) == NULL)
 		err(1, "%s", fname);
-
-	if (fflg) {
-		asprintf(&fmfname, "%s.filemon", fname);
-		if (!fmfname)
-			err(1, "%s.filemon", fname);
-		if ((fm_fd = open("/dev/filemon", O_RDWR | O_CLOEXEC)) == -1)
-			err(1, "open(\"/dev/filemon\", O_RDWR)");
-		if ((fm_log = open(fmfname,
-		    O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
-		    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
-			err(1, "open(%s)", fmfname);
-		if (ioctl(fm_fd, FILEMON_SET_FD, &fm_log) < 0)
-			err(1, "Cannot set filemon log file descriptor");
-	}
-
-	if (pflg)
-		playback(fscript);
 
 	if ((ttyflg = isatty(STDIN_FILENO)) != 0) {
 		if (tcgetattr(STDIN_FILENO, &tt) == -1)
@@ -205,10 +183,6 @@ main(int argc, char *argv[])
 			}
 		}
 		fflush(fscript);
-		if (fflg) {
-			(void)printf("Filemon started, output file is %s\n",
-			    fmfname);
-		}
 	}
 	if (ttyflg) {
 		rtt = tt;
@@ -223,14 +197,6 @@ main(int argc, char *argv[])
 		done(1);
 	}
 	if (child == 0) {
-		if (fflg) {
-			int pid;
-
-			pid = getpid();
-			if (ioctl(fm_fd, FILEMON_SET_PID, &pid) < 0)
-				err(1, "Cannot set filemon PID");
-		}
-
 		doshell(argv);
 	}
 	close(slave);
@@ -367,10 +333,6 @@ done(int eno)
 			    ctime(&tvec));
 		}
 		(void)printf("\nScript done, output file is %s\n", fname);
-		if (fflg) {
-			(void)printf("Filemon done, output file is %s\n",
-			    fmfname);
-		}
 	}
 	(void)fclose(fscript);
 	(void)close(master);
@@ -395,113 +357,4 @@ record(FILE *fp, char *buf, size_t cc, int direction)
 	iov[1].iov_base = buf;
 	if (writev(fileno(fp), &iov[0], 2) == -1)
 		err(1, "writev");
-}
-
-static void
-consume(FILE *fp, off_t len, char *buf, int reg)
-{
-	size_t l;
-
-	if (reg) {
-		if (fseeko(fp, len, SEEK_CUR) == -1)
-			err(1, NULL);
-	}
-	else {
-		while (len > 0) {
-			l = MIN(DEF_BUF, len);
-			if (fread(buf, sizeof(char), l, fp) != l)
-				err(1, "cannot read buffer");
-			len -= l;
-		}
-	}
-}
-
-#define swapstamp(stamp) do { \
-	if (stamp.scr_direction > 0xff) { \
-		stamp.scr_len = bswap64(stamp.scr_len); \
-		stamp.scr_sec = bswap64(stamp.scr_sec); \
-		stamp.scr_usec = bswap32(stamp.scr_usec); \
-		stamp.scr_direction = bswap32(stamp.scr_direction); \
-	} \
-} while (0/*CONSTCOND*/)
-
-static void
-playback(FILE *fp)
-{
-	struct timespec tsi, tso;
-	struct stamp stamp;
-	struct stat pst;
-	char buf[DEF_BUF];
-	off_t nread, save_len;
-	size_t l;
-	time_t tclock;
-	int reg;
-
-	if (fstat(fileno(fp), &pst) == -1)
-		err(1, "fstat failed");
-
-	reg = S_ISREG(pst.st_mode);
-
-	for (nread = 0; !reg || nread < pst.st_size; nread += save_len) {
-		if (fread(&stamp, sizeof(stamp), 1, fp) != 1) {
-			if (reg)
-				err(1, "reading playback header");
-			else
-				break;
-		}
-		swapstamp(stamp);
-		save_len = sizeof(stamp);
-
-		if (reg && stamp.scr_len >
-		    (uint64_t)(pst.st_size - save_len) - nread)
-			errx(1, "invalid stamp");
-
-		save_len += stamp.scr_len;
-		tclock = stamp.scr_sec;
-		tso.tv_sec = stamp.scr_sec;
-		tso.tv_nsec = stamp.scr_usec * 1000;
-
-		switch (stamp.scr_direction) {
-		case 's':
-			if (!qflg)
-			    (void)printf("Script started on %s",
-				ctime(&tclock));
-			tsi = tso;
-			(void)consume(fp, stamp.scr_len, buf, reg);
-			break;
-		case 'e':
-			if (!qflg)
-				(void)printf("\nScript done on %s",
-				    ctime(&tclock));
-			(void)consume(fp, stamp.scr_len, buf, reg);
-			break;
-		case 'i':
-			/* throw input away */
-			(void)consume(fp, stamp.scr_len, buf, reg);
-			break;
-		case 'o':
-			tsi.tv_sec = tso.tv_sec - tsi.tv_sec;
-			tsi.tv_nsec = tso.tv_nsec - tsi.tv_nsec;
-			if (tsi.tv_nsec < 0) {
-				tsi.tv_sec -= 1;
-				tsi.tv_nsec += 1000000000;
-			}
-			if (usesleep)
-				(void)nanosleep(&tsi, NULL);
-			tsi = tso;
-			while (stamp.scr_len > 0) {
-				l = MIN(DEF_BUF, stamp.scr_len);
-				if (fread(buf, sizeof(char), l, fp) != l)
-					err(1, "cannot read buffer");
-
-				(void)write(STDOUT_FILENO, buf, l);
-				stamp.scr_len -= l;
-			}
-			break;
-		default:
-			errx(1, "invalid direction");
-		}
-	}
-	(void)fclose(fp);
-	exit(0);
 }
