@@ -1,0 +1,25 @@
+# vim
+*~
+.*.swp
+
+# compiler
+*.s
+
+# generated files
+config.h
+
+# cmake
+Makefile
+/*.cmake
+CMakeCache.txt
+CMakeFiles/
+install_manifest.txt
+
+# ctest
+*.log
+Testing/
+DartConfiguration.tcl
+
+# executables
+scripter
+scripter.exe
