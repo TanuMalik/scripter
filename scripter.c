@@ -80,7 +80,7 @@ static int child;
 static const char *fname;
 static char *fmfname;
 static int qflg, ttyflg;
-static int usesleep, rawout, showexit;
+static int rawout, showexit;
 
 static struct termios tt;
 
@@ -105,18 +105,14 @@ main(int argc, char *argv[])
 	int flushtime, readstdin;
 
 	aflg = Fflg = kflg = 0;
-	usesleep = 1;
 	rawout = 0;
 	flushtime = 30;
 	showexit = 0;
 
-	while ((ch = getopt(argc, argv, "adFfkpqrt:")) != -1)
+	while ((ch = getopt(argc, argv, "aFkqt:")) != -1)
 		switch(ch) {
 		case 'a':
 			aflg = 1;
-			break;
-		case 'd':
-			usesleep = 0;
 			break;
 		case 'F':
 			Fflg = 1;
