@@ -9,7 +9,7 @@ if(MINGW)
 	add_definitions(-DMINGW_HAS_SECURE_API)
 endif()
 
-add_definitions(-Wall -Wconversion -Wsign-compare -Wno-unused-variable)
+add_definitions(-Wall -Wsign-compare -Wno-unused-variable)
 add_definitions(-D_POSIX_C_SOURCE=200809L)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

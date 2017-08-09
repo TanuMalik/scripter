@@ -92,7 +92,7 @@ static void usage(void);
 int
 main(int argc, char *argv[])
 {
-	int cc;
+	ssize_t cc;
 	struct termios rtt, stt;
 	struct winsize win;
 	struct timeval tv, *tvp;
