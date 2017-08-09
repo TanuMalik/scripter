@@ -48,7 +48,7 @@ static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <paths.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -279,7 +279,7 @@ doshell(char **av)
 
 	shell = getenv("SHELL");
 	if (shell == NULL)
-		shell = _PATH_BSHELL;
+		shell = getpwuid(geteuid())->pw_shell;
 
 	(void)close(master);
 	(void)fclose(fscript);
@@ -290,7 +290,7 @@ doshell(char **av)
 		execvp(av[0], av);
 		warn("%s", av[0]);
 	} else {
-		execl(shell, shell, "-i", (char *)NULL);
+		execl(shell, shell, (char *)NULL);
 		warn("%s", shell);
 	}
 	exit(1);
