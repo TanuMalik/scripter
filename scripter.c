@@ -80,14 +80,13 @@ static int child;
 static const char *fname;
 static char *fmfname;
 static int qflg, ttyflg;
-static int rawout, showexit;
+static int rawin, showexit;
 
 static struct termios tt;
 
 static void done(int) __dead2;
 static void doshell(char **);
 static void finish(void);
-static void record(FILE *, char *, size_t, int);
 static void usage(void);
 
 int
@@ -104,12 +103,11 @@ main(int argc, char *argv[])
 	int aflg, Fflg, kflg, ch, k, n;
 	int flushtime, readstdin;
 
-	aflg = Fflg = kflg = 0;
-	rawout = 0;
+	aflg = Fflg = 0;
 	flushtime = 30;
 	showexit = 0;
 
-	while ((ch = getopt(argc, argv, "aFkqt:")) != -1)
+	while ((ch = getopt(argc, argv, "aFiqt:")) != -1)
 		switch(ch) {
 		case 'a':
 			aflg = 1;
@@ -117,14 +115,11 @@ main(int argc, char *argv[])
 		case 'F':
 			Fflg = 1;
 			break;
-		case 'k':
-			kflg = 1;
+		case 'i':
+			rawin = 1;
 			break;
 		case 'q':
 			qflg = 1;
-			break;
-		case 'r':
-			rawout = 1;
 			break;
 		case 't':
 			flushtime = atoi(optarg);
@@ -160,13 +155,10 @@ main(int argc, char *argv[])
 			err(1, "openpty");
 	}
 
-	if (rawout)
-		record(fscript, NULL, 0, 's');
-
 	if (!qflg) {
 		tvec = time(NULL);
 		(void)printf("Script started, output file is %s\n", fname);
-		if (!rawout) {
+		if (!rawin) {
 			(void)fprintf(fscript, "Script started on %s",
 			    ctime(&tvec));
 			if (argv[0]) {
@@ -231,13 +223,9 @@ main(int argc, char *argv[])
 				readstdin = 0;
 			}
 			if (cc > 0) {
-				if (rawout)
-					record(fscript, ibuf, cc, 'i');
 				(void)write(master, ibuf, cc);
-				if (kflg && tcgetattr(master, &stt) >= 0 &&
-				    ((stt.c_lflag & ECHO) == 0)) {
+				if (rawin)
 					(void)fwrite(ibuf, 1, cc, fscript);
-				}
 			}
 		}
 		if (n > 0 && FD_ISSET(master, &rfd)) {
@@ -245,9 +233,7 @@ main(int argc, char *argv[])
 			if (cc <= 0)
 				break;
 			(void)write(STDOUT_FILENO, obuf, cc);
-			if (rawout)
-				record(fscript, obuf, cc, 'o');
-			else
+			if (!rawin)
 				(void)fwrite(obuf, 1, cc, fscript);
 		}
 		tvec = time(0);
@@ -318,10 +304,8 @@ done(int eno)
 	if (ttyflg)
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &tt);
 	tvec = time(NULL);
-	if (rawout)
-		record(fscript, NULL, 0, 'e');
 	if (!qflg) {
-		if (!rawout) {
+		if (!rawin) {
 			if (showexit)
 				(void)fprintf(fscript, "\nCommand exit status:"
 				    " %d", eno);
@@ -333,24 +317,4 @@ done(int eno)
 	(void)fclose(fscript);
 	(void)close(master);
 	exit(eno);
-}
-
-static void
-record(FILE *fp, char *buf, size_t cc, int direction)
-{
-	struct iovec iov[2];
-	struct stamp stamp;
-	struct timeval tv;
-
-	(void)gettimeofday(&tv, NULL);
-	stamp.scr_len = cc;
-	stamp.scr_sec = tv.tv_sec;
-	stamp.scr_usec = tv.tv_usec;
-	stamp.scr_direction = direction;
-	iov[0].iov_len = sizeof(stamp);
-	iov[0].iov_base = &stamp;
-	iov[1].iov_len = cc;
-	iov[1].iov_base = buf;
-	if (writev(fileno(fp), &iov[0], 2) == -1)
-		err(1, "writev");
 }
