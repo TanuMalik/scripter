@@ -175,7 +175,6 @@ main(int argc, char *argv[])
 	if (ttyflg) {
 		rtt = tt;
 		cfmakeraw(&rtt);
-		rtt.c_lflag &= ~ECHO;
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
 	}
 
