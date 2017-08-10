@@ -1,0 +1,18 @@
+﻿---
+AccessModifierOffset: '-8'
+AlignEscapedNewlinesLeft: 'true'
+AlignTrailingComments: 'true'
+AllowShortFunctionsOnASingleLine: 'Inline'
+BreakBeforeBraces: WebKit
+AlwaysBreakAfterReturnType: TopLevelDefinitions
+ColumnLimit: '80'
+ContinuationIndentWidth: '4'
+IndentWidth: '8'
+Language: Cpp
+MaxEmptyLinesToKeep: '1'
+PointerAlignment: Right
+SpacesBeforeTrailingComments: '2'
+TabWidth: '8'
+UseTab: ForIndentation
+
+...

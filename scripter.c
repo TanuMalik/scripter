@@ -86,7 +86,7 @@ main(int argc, char *argv[])
 	showexit = 0;
 
 	while ((ch = getopt(argc, argv, "aFiqt:")) != -1)
-		switch(ch) {
+		switch (ch) {
 		case 'a':
 			aflg = 1;
 			break;
@@ -138,13 +138,13 @@ main(int argc, char *argv[])
 		(void)printf("Script started, output file is %s\n", fname);
 		if (!rawin) {
 			(void)fprintf(fscript, "Script started on %s",
-			    ctime(&tvec));
+			              ctime(&tvec));
 			if (argv[0]) {
 				showexit = 1;
 				fprintf(fscript, "Command: ");
-				for (k = 0 ; argv[k] ; ++k)
+				for (k = 0; argv[k]; ++k)
 					fprintf(fscript, "%s%s", k ? " " : "",
-						argv[k]);
+					        argv[k]);
 				fprintf(fscript, "\n");
 			}
 		}
@@ -209,7 +209,7 @@ main(int argc, char *argv[])
 			}
 		}
 		if (n > 0 && FD_ISSET(master, &rfd)) {
-			cc = read(master, obuf, sizeof (obuf));
+			cc = read(master, obuf, sizeof(obuf));
 			if (cc <= 0)
 				break;
 			(void)write(STDOUT_FILENO, obuf, cc);
@@ -231,7 +231,8 @@ main(int argc, char *argv[])
 static void
 usage(void)
 {
-	(void)fprintf(stderr,
+	(void)fprintf(
+	    stderr,
 	    "usage: %s [-aiq] [-F pipe] [-t time] [file [command ...]]\n",
 	    getprogname());
 	exit(1);
@@ -287,10 +288,10 @@ done(int eno)
 	if (!qflg) {
 		if (!rawin) {
 			if (showexit)
-				(void)fprintf(fscript, "\nCommand exit status:"
-				    " %d", eno);
-			(void)fprintf(fscript,"\nScript done on %s",
-			    ctime(&tvec));
+				(void)fprintf(fscript,
+				              "\nCommand exit status: %d", eno);
+			(void)fprintf(fscript, "\nScript done on %s",
+			              ctime(&tvec));
 		}
 		(void)printf("\nScript done, output file is %s\n", fname);
 	}
