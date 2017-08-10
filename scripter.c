@@ -31,18 +31,19 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
-#include <sys/time.h>
 #include <sys/uio.h>
 
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 #if defined(__OpenBSD__) || defined(__APPLE__)
@@ -63,10 +64,10 @@ static int rawin, showexit;
 
 static struct termios tt;
 
-static void done(int) __dead2;
+static _Noreturn void done(int);
 static void doshell(char **);
 static void finish(void);
-static void usage(void);
+static void usage(char *);
 
 int
 main(int argc, char *argv[])
@@ -80,6 +81,7 @@ main(int argc, char *argv[])
 	fd_set rfd;
 	int aflg, Fflg, ch, k, n;
 	int flushtime, readstdin;
+	char *argv0 = argv[0];
 
 	aflg = Fflg = 0;
 	flushtime = 30;
@@ -106,7 +108,7 @@ main(int argc, char *argv[])
 			break;
 		case '?':
 		default:
-			usage();
+			usage(argv0);
 		}
 	argc -= optind;
 	argv += optind;
@@ -222,12 +224,12 @@ main(int argc, char *argv[])
 }
 
 static void
-usage(void)
+usage(char *argv0)
 {
 	(void)fprintf(
 	    stderr,
 	    "usage: %s [-aiq] [-F pipe] [-t time] [file [command ...]]\n",
-	    getprogname());
+	    basename(argv0));
 	exit(1);
 }
 

@@ -10,8 +10,6 @@ if(MINGW)
 endif()
 
 add_definitions(-Wall -Wsign-compare)
-add_definitions(-D_POSIX_C_SOURCE=200809L)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 check_function_exists(openpty UTIL_IN_LIBC)
 if(NOT UTIL_IN_LIBC)
