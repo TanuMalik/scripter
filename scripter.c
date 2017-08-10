@@ -177,6 +177,11 @@ main(int argc, char *argv[])
 		cfmakeraw(&rtt);
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
 	}
+	(void)tcgetattr(master, &stt);
+	if (rawin) {
+		cfmakeraw(&stt);
+		(void)tcsetattr(master, TCSAFLUSH, &stt);
+	}
 
 	child = fork();
 	if (child < 0) {
@@ -215,10 +220,8 @@ main(int argc, char *argv[])
 			if (cc < 0)
 				break;
 			if (cc == 0) {
-				if (tcgetattr(master, &stt) == 0 &&
-				    (stt.c_lflag & ICANON) != 0) {
+				if ((stt.c_lflag & ICANON) != 0)
 					(void)write(master, &stt.c_cc[VEOF], 1);
-				}
 				readstdin = 0;
 			}
 			if (cc > 0) {
