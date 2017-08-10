@@ -63,8 +63,6 @@ static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
 #include <utmp.h>
 #endif
 
-#define DEF_BUF 65536
-
 static FILE *fscript;
 static int master, slave;
 static int child;
@@ -88,7 +86,6 @@ main(int argc, char *argv[])
 	struct timeval tv, *tvp;
 	time_t tvec, start;
 	char obuf[BUFSIZ];
-	char ibuf[BUFSIZ];
 	fd_set rfd;
 	int aflg, Fflg, kflg, ch, k, n;
 	int flushtime, readstdin;
@@ -206,7 +203,7 @@ main(int argc, char *argv[])
 		if (n < 0 && errno != EINTR)
 			break;
 		if (n > 0 && FD_ISSET(STDIN_FILENO, &rfd)) {
-			cc = read(STDIN_FILENO, ibuf, BUFSIZ);
+			cc = read(STDIN_FILENO, obuf, BUFSIZ);
 			if (cc < 0)
 				break;
 			if (cc == 0) {
@@ -215,9 +212,9 @@ main(int argc, char *argv[])
 				readstdin = 0;
 			}
 			if (cc > 0) {
-				(void)write(master, ibuf, cc);
+				(void)write(master, obuf, cc);
 				if (rawin)
-					(void)fwrite(ibuf, 1, cc, fscript);
+					(void)fwrite(obuf, 1, cc, fscript);
 			}
 		}
 		if (n > 0 && FD_ISSET(master, &rfd)) {
