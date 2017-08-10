@@ -155,16 +155,18 @@ main(int argc, char *argv[])
 		}
 		fflush(fscript);
 	}
+	(void)tcgetattr(master, &stt);
 	if (ttyflg) {
 		rtt = tt;
 		cfmakeraw(&rtt);
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
 	}
-	(void)tcgetattr(master, &stt);
-	if (rawin) {
+#if defined(__linux__) || defined(__CYGWIN__)
+	else if (rawin) {
 		cfmakeraw(&stt);
 		(void)tcsetattr(master, TCSAFLUSH, &stt);
 	}
+#endif
 
 	start = tvec = time(0);
 	readstdin = 1;
