@@ -67,18 +67,10 @@ static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
 
 #define DEF_BUF 65536
 
-struct stamp {
-	uint64_t scr_len;	/* amount of data */
-	uint64_t scr_sec;	/* time it arrived in seconds... */
-	uint32_t scr_usec;	/* ...and microseconds */
-	uint32_t scr_direction; /* 'i', 'o', etc (also indicates endianness) */
-};
-
 static FILE *fscript;
 static int master, slave;
 static int child;
 static const char *fname;
-static char *fmfname;
 static int qflg, ttyflg;
 static int rawin, showexit;
 
@@ -285,7 +277,6 @@ doshell(char **av)
 
 	(void)close(master);
 	(void)fclose(fscript);
-	free(fmfname);
 	login_tty(slave);
 	setenv("SCRIPT", fname, 1);
 	if (av[0]) {
