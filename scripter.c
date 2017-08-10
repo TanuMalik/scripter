@@ -55,7 +55,7 @@
 #endif
 
 static FILE *fscript;
-static int master, slave;
+static int master;
 static int child;
 static const char *fname;
 static int qflg, ttyflg;
@@ -118,20 +118,23 @@ main(int argc, char *argv[])
 	} else
 		fname = "typescript";
 
-	if ((fscript = fopen(fname, aflg ? "a" : "w")) == NULL)
-		err(1, "%s", fname);
-
 	if ((ttyflg = isatty(STDIN_FILENO)) != 0) {
 		if (tcgetattr(STDIN_FILENO, &tt) == -1)
 			err(1, "tcgetattr");
 		if (ioctl(STDIN_FILENO, TIOCGWINSZ, &win) == -1)
 			err(1, "ioctl");
-		if (openpty(&master, &slave, NULL, &tt, &win) == -1)
-			err(1, "openpty");
+		child = forkpty(&master, NULL, &tt, &win);
 	} else {
-		if (openpty(&master, &slave, NULL, NULL, NULL) == -1)
-			err(1, "openpty");
+		child = forkpty(&master, NULL, NULL, NULL);
 	}
+
+	if (child < 0)
+		err(1, "forkpty");
+	if (child == 0)
+		doshell(argv);
+
+	if ((fscript = fopen(fname, aflg ? "a" : "w")) == NULL)
+		err(1, "%s", fname);
 
 	if (!qflg) {
 		tvec = time(NULL);
@@ -160,16 +163,6 @@ main(int argc, char *argv[])
 		cfmakeraw(&stt);
 		(void)tcsetattr(master, TCSAFLUSH, &stt);
 	}
-
-	child = fork();
-	if (child < 0) {
-		warn("fork");
-		done(1);
-	}
-	if (child == 0) {
-		doshell(argv);
-	}
-	close(slave);
 
 	start = tvec = time(0);
 	readstdin = 1;
@@ -263,9 +256,6 @@ doshell(char **av)
 	if (shell == NULL)
 		shell = getpwuid(geteuid())->pw_shell;
 
-	(void)close(master);
-	(void)fclose(fscript);
-	login_tty(slave);
 	setenv("SCRIPT", fname, 1);
 	if (av[0]) {
 		execvp(av[0], av);
