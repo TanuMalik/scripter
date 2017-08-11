@@ -160,13 +160,10 @@ main(int argc, char *argv[])
 		rtt = tt;
 		cfmakeraw(&rtt);
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
-	}
-#if defined(__linux__) || defined(__CYGWIN__)
-	else if (rawin) {
+	} else if (rawin) {
 		cfmakeraw(&stt);
 		(void)tcsetattr(master, TCSAFLUSH, &stt);
 	}
-#endif
 
 	start = tvec = time(0);
 	readstdin = 1;
