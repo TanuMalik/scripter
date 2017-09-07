@@ -9,7 +9,7 @@ if(MINGW)
 	add_definitions(-DMINGW_HAS_SECURE_API)
 endif()
 
-add_definitions(-Wall -Wsign-compare)
+add_definitions(-Wall -Wsign-compare -Wno-unused-result)
 
 check_function_exists(openpty UTIL_IN_LIBC)
 if(NOT UTIL_IN_LIBC)
