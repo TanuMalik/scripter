@@ -162,6 +162,7 @@ main(int argc, char *argv[])
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
 	} else if (rawin) {
 		cfmakeraw(&stt);
+		stt.c_lflag |= ECHO;
 		(void)tcsetattr(master, TCSAFLUSH, &stt);
 	}
 
