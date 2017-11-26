@@ -163,6 +163,11 @@ main(int argc, char *argv[])
 	} else if (rawin) {
 		cfmakeraw(&stt);
 		stt.c_lflag |= ECHO;
+#if defined(EXTPROC)
+		stt.c_lflag |= EXTPROC;
+#else
+		stt.c_lflag &= ~ECHOCTL;
+#endif
 		(void)tcsetattr(master, TCSAFLUSH, &stt);
 	}
 
